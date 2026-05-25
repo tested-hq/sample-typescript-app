@@ -1,0 +1,47 @@
+name: tested-diff
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  coverage-diff:
+    name: tested diff against base
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+          standalone: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      - name: vitest with coverage
+        run: pnpm test:coverage
+
+      - name: dogfood — tested diff
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          node vendor/tested.js diff --base "origin/$BASE_REF" --json \
+            | tee tested-output.json
+
+      - name: print human-readable summary
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: node vendor/tested.js diff --base "origin/$BASE_REF"
+        continue-on-error: true
