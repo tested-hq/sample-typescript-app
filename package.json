@@ -20,8 +20,13 @@
   "devDependencies": {
     "@types/node": "25.9.1",
     "@vitest/coverage-v8": "4.1.7",
+    "commander": "14.0.3",
+    "minimatch": "10.2.5",
+    "picocolors": "1.1.1",
+    "simple-git": "3.36.0",
     "tsx": "4.22.3",
     "typescript": "6.0.3",
-    "vitest": "4.1.7"
+    "vitest": "4.1.7",
+    "yaml": "2.9.0"
   }
 }
