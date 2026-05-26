@@ -45,3 +45,8 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: node vendor/tested.js diff --base "origin/$BASE_REF"
         continue-on-error: true
+
+      - name: gate — tested check
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: node vendor/tested.js check

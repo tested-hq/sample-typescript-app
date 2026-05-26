@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
 // src/cli.ts
-import { Command as Command6 } from "commander";
+import { Command as Command7 } from "commander";
 
 // src/commands/diff.ts
-import { resolve as resolve2 } from "path";
 import "commander";
 
 // src/config.ts
@@ -20,7 +19,16 @@ var TestedConfigSchema = z.object({
     format: z.literal("istanbul-json").default("istanbul-json"),
     path: z.string().default("coverage/coverage-final.json")
   }).prefault({}),
-  base: z.string().default("origin/main")
+  base: z.string().default("origin/main"),
+  testRunner: z.enum(["vitest", "jest", "pytest"]).nullable().default(null),
+  // Patch / project coverage gates. `tested init` writes these so users can
+  // tune what counts as "passing" — schema MUST accept them so loadConfig
+  // doesn't silently drop the field. Enforcement in `diff` lands in a
+  // follow-up; today we just round-trip the values cleanly.
+  thresholds: z.object({
+    patch: z.number().min(0).max(100),
+    project: z.number().min(0).max(100)
+  }).optional()
 });
 var UncoveredRangeSchema = z.object({
   start: z.number().int().positive(),
@@ -82,6 +90,9 @@ async function loadConfig(opts) {
   const merged = /* @__PURE__ */ new Set([...DEFAULT_IGNORES, ...parsed.ignores]);
   return { ...parsed, ignores: [...merged] };
 }
+
+// src/core/computeDiff.ts
+import { resolve as resolve3 } from "path";
 
 // src/git.ts
 import { simpleGit } from "simple-git";
@@ -181,6 +192,18 @@ function splitByIgnore(paths, patterns) {
     else kept.push(p);
   }
   return { kept, ignored };
+}
+
+// src/core/assert-within-root.ts
+import { resolve as resolve2, sep } from "path";
+function assertWithinRoot(root, resolvedPath) {
+  const safeRoot = resolve2(root) + sep;
+  const safePath = resolve2(resolvedPath);
+  if (!safePath.startsWith(safeRoot)) {
+    throw new Error(
+      `Path traversal rejected: ${safePath} is outside repository root ${safeRoot}`
+    );
+  }
 }
 
 // src/core/patch.ts
@@ -310,6 +333,59 @@ function buildDiffOutput(args) {
   };
 }
 
+// src/core/computeDiff.ts
+async function computeDiff(opts) {
+  const { cwd, config } = opts;
+  const ctx = opts.ctx ?? await openRepo(cwd);
+  const baseRef = opts.baseRef ?? config.base;
+  const base = await resolveBase(ctx, baseRef);
+  const head = await headSha(ctx);
+  const diffText = await unifiedDiff(ctx, base);
+  const addedByFile = parseUnifiedDiff(diffText);
+  const coveragePath = resolve3(cwd, config.coverage.path);
+  assertWithinRoot(ctx.repoRoot, coveragePath);
+  const allFiles = await parseIstanbul({ path: coveragePath, repoRoot: ctx.repoRoot });
+  const { kept, ignored } = splitByIgnore(
+    allFiles.map((f) => f.path),
+    config.ignores
+  );
+  const keptSet = new Set(kept);
+  const files = allFiles.filter((f) => keptSet.has(f.path));
+  let projectDelta = null;
+  if (opts.withBaseCoverage) {
+    const baseCoveragePath = resolve3(cwd, opts.withBaseCoverage);
+    assertWithinRoot(ctx.repoRoot, baseCoveragePath);
+    const baseFiles = await parseIstanbul({
+      path: baseCoveragePath,
+      repoRoot: ctx.repoRoot
+    });
+    const baseKept = baseFiles.filter((f) => !ignored.includes(f.path));
+    const baseExec = baseKept.reduce((n, f) => n + f.statements.length, 0);
+    const baseCov = baseKept.reduce(
+      (n, f) => n + f.statements.filter((s) => s.hits > 0).length,
+      0
+    );
+    const basePct = baseExec === 0 ? 0 : Math.round(baseCov / baseExec * 1e3) / 10;
+    const headPct = (() => {
+      const exec = files.reduce((n, f) => n + f.statements.length, 0);
+      const cov = files.reduce(
+        (n, f) => n + f.statements.filter((s) => s.hits > 0).length,
+        0
+      );
+      return exec === 0 ? 0 : Math.round(cov / exec * 1e3) / 10;
+    })();
+    projectDelta = Math.round((headPct - basePct) * 10) / 10;
+  }
+  return buildDiffOutput({
+    base: baseRef,
+    head,
+    files,
+    addedByFile,
+    ignored,
+    projectDelta
+  });
+}
+
 // src/output/human.ts
 import pc from "picocolors";
 function formatRange(r) {
@@ -354,50 +430,11 @@ function registerDiffCommand(program2) {
   program2.command("diff").description("Compute patch + project coverage against a base ref").option("--base <ref>", "Git base ref to diff against", void 0).option("--with-base-coverage <path>", "Compare project coverage against a baseline JSON", void 0).option("--json", "Emit schema-v1 JSON instead of human text", false).action(async (opts) => {
     const cwd = process.cwd();
     const config = await loadConfig({ cwd });
-    const ctx = await openRepo(cwd);
-    const baseRef = opts.base ?? config.base;
-    const base = await resolveBase(ctx, baseRef);
-    const head = await headSha(ctx);
-    const diffText = await unifiedDiff(ctx, base);
-    const addedByFile = parseUnifiedDiff(diffText);
-    const coveragePath = resolve2(cwd, config.coverage.path);
-    const allFiles = await parseIstanbul({ path: coveragePath, repoRoot: ctx.repoRoot });
-    const { kept, ignored } = splitByIgnore(
-      allFiles.map((f) => f.path),
-      config.ignores
-    );
-    const keptSet = new Set(kept);
-    const files = allFiles.filter((f) => keptSet.has(f.path));
-    let projectDelta = null;
-    if (opts.withBaseCoverage) {
-      const baseFiles = await parseIstanbul({
-        path: resolve2(cwd, opts.withBaseCoverage),
-        repoRoot: ctx.repoRoot
-      });
-      const baseKept = baseFiles.filter((f) => !ignored.includes(f.path));
-      const baseExec = baseKept.reduce((n, f) => n + f.statements.length, 0);
-      const baseCov = baseKept.reduce(
-        (n, f) => n + f.statements.filter((s) => s.hits > 0).length,
-        0
-      );
-      const basePct = baseExec === 0 ? 0 : Math.round(baseCov / baseExec * 1e3) / 10;
-      const headPct = (() => {
-        const exec = files.reduce((n, f) => n + f.statements.length, 0);
-        const cov = files.reduce(
-          (n, f) => n + f.statements.filter((s) => s.hits > 0).length,
-          0
-        );
-        return exec === 0 ? 0 : Math.round(cov / exec * 1e3) / 10;
-      })();
-      projectDelta = Math.round((headPct - basePct) * 10) / 10;
-    }
-    const output = buildDiffOutput({
-      base: baseRef,
-      head,
-      files,
-      addedByFile,
-      ignored,
-      projectDelta
+    const output = await computeDiff({
+      cwd,
+      config,
+      ...opts.base !== void 0 ? { baseRef: opts.base } : {},
+      ...opts.withBaseCoverage !== void 0 ? { withBaseCoverage: opts.withBaseCoverage } : {}
     });
     if (opts.json) {
       process.stdout.write(JSON.stringify(output, null, 2) + "\n");
@@ -411,14 +448,39 @@ function registerDiffCommand(program2) {
 import { spawn } from "child_process";
 import "commander";
 function resolveRunCommand(opts) {
-  return {
-    command: "npx",
-    args: ["vitest", "run", "--coverage", ...opts.extraArgs]
-  };
+  const runner = opts.runner ?? "vitest";
+  switch (runner) {
+    case "vitest":
+      return {
+        command: "npx",
+        args: ["vitest", "run", "--coverage", ...opts.extraArgs]
+      };
+    case "jest":
+      return {
+        command: "npx",
+        args: ["jest", "--coverage", ...opts.extraArgs]
+      };
+    case "pytest":
+      return {
+        command: "python",
+        args: ["-m", "pytest", "--cov", ...opts.extraArgs]
+      };
+    default: {
+      const _exhaustive = runner;
+      void _exhaustive;
+      throw new Error(
+        `Unsupported runner: ${String(runner)}. Supported: vitest, jest, pytest`
+      );
+    }
+  }
 }
 function registerRunCommand(program2) {
-  program2.command("run").description("Run the user's vitest suite with coverage enabled").allowUnknownOption(true).argument("[args...]", "Extra arguments forwarded to vitest").action((extraArgs) => {
-    const { command, args } = resolveRunCommand({ extraArgs });
+  program2.command("run").description("Run the user's test suite with coverage enabled (runner read from .tested.yaml; defaults to vitest)").allowUnknownOption(true).argument("[args...]", "Extra arguments forwarded to the runner").action(async (extraArgs) => {
+    const config = await loadConfig({ cwd: process.cwd() });
+    const { command, args } = resolveRunCommand({
+      runner: config.testRunner,
+      extraArgs
+    });
     const child = spawn(command, args, { stdio: "inherit" });
     child.on("exit", (code) => {
       process.exit(code ?? 1);
@@ -428,7 +490,7 @@ function registerRunCommand(program2) {
 
 // src/commands/explain.ts
 import { readFile as readFile3 } from "fs/promises";
-import { resolve as resolve3 } from "path";
+import { resolve as resolve4 } from "path";
 import "commander";
 function parseLocation(input) {
   const idx = input.lastIndexOf(":");
@@ -477,7 +539,8 @@ function registerExplainCommand(program2) {
     const { path: relPath, line } = parseLocation(location);
     const config = await loadConfig({ cwd });
     const ctx = await openRepo(cwd);
-    const coveragePath = resolve3(cwd, config.coverage.path);
+    const coveragePath = resolve4(cwd, config.coverage.path);
+    assertWithinRoot(ctx.repoRoot, coveragePath);
     const files = await parseIstanbul({ path: coveragePath, repoRoot: ctx.repoRoot });
     const file = files.find((f) => f.path === relPath);
     if (!file) {
@@ -485,7 +548,9 @@ function registerExplainCommand(program2) {
 `);
       process.exit(2);
     }
-    const source = await readFile3(resolve3(cwd, relPath), "utf8");
+    const resolvedSource = resolve4(ctx.repoRoot, relPath);
+    assertWithinRoot(ctx.repoRoot, resolvedSource);
+    const source = await readFile3(resolvedSource, "utf8");
     const sourceLines = source.split("\n");
     const result = explainAt(file, line, sourceLines);
     if (opts.json) {
@@ -682,6 +747,12 @@ function formatInitResultHuman(result) {
 function registerInitCommand(program2) {
   program2.command("init").description("Initialize tested.dev in the current project (writes .tested.yaml)").option("--force", "Overwrite an existing .tested.yaml", false).option("--no-hooks", "Skip installing the husky pre-push hook").option("--json", "Emit JSON instead of human text", false).action(async (opts) => {
     try {
+      if (opts.hooks && !process.stdin.isTTY && !opts.force) {
+        process.stderr.write(
+          "error: --hooks in a non-TTY environment requires --force to confirm (would install a git hook unattended)\n"
+        );
+        process.exit(1);
+      }
       const result = await runInit({
         cwd: process.cwd(),
         force: opts.force,
@@ -707,12 +778,112 @@ function registerInitCommand(program2) {
   });
 }
 
+// src/commands/check.ts
+import "commander";
+function runCheck(input) {
+  const { config, diff, json } = input;
+  if (!config.thresholds) {
+    return {
+      skipped: true,
+      patchPass: true,
+      projectPass: true,
+      overall: "pass",
+      stdout: "",
+      stderr: "no thresholds configured in .tested.yaml \u2014 skipping gate check\n",
+      exitCode: 0
+    };
+  }
+  const patchPct = diff.patch.pct;
+  const projectPct = diff.project.pct;
+  const patchThreshold = config.thresholds.patch;
+  const projectThreshold = config.thresholds.project;
+  const patchPass = patchPct >= patchThreshold;
+  const projectPass = projectPct >= projectThreshold;
+  const overall = patchPass && projectPass ? "pass" : "fail";
+  const exitCode = overall === "pass" ? 0 : 1;
+  if (json) {
+    const payload = {
+      patch: { pct: patchPct, threshold: patchThreshold, pass: patchPass },
+      project: { pct: projectPct, threshold: projectThreshold, pass: projectPass },
+      overall
+    };
+    return {
+      skipped: false,
+      patchPass,
+      projectPass,
+      overall,
+      stdout: JSON.stringify(payload) + "\n",
+      stderr: "",
+      exitCode
+    };
+  }
+  const patchIcon = patchPass ? "\u2705" : "\u274C";
+  const projectIcon = projectPass ? "\u2705" : "\u274C";
+  const patchLabel = patchPass ? "pass" : "fail";
+  const projectLabel = projectPass ? "pass" : "fail";
+  const patchPctStr = patchPct.toFixed(1);
+  const projectPctStr = projectPct.toFixed(1);
+  const stderr = `${patchIcon} patch coverage ${patchPctStr}% (threshold ${patchThreshold}) \u2014 ${patchLabel}
+${projectIcon} project coverage ${projectPctStr}% (threshold ${projectThreshold}) \u2014 ${projectLabel}
+`;
+  const stdout = `PATCH: ${patchPctStr}% / ${patchThreshold}% \u2014 ${patchLabel.toUpperCase()}
+PROJECT: ${projectPctStr}% / ${projectThreshold}% \u2014 ${projectLabel.toUpperCase()}
+`;
+  return {
+    skipped: false,
+    patchPass,
+    projectPass,
+    overall,
+    stdout,
+    stderr,
+    exitCode
+  };
+}
+function registerCheckCommand(program2) {
+  program2.command("check").description(
+    "Exit non-zero if patch or project coverage falls below configured thresholds."
+  ).option("--json", "Emit machine-readable JSON to stdout (exit code unchanged).", false).option("--base <ref>", "Git base ref to diff against", void 0).action(async (opts) => {
+    const cwd = process.cwd();
+    const config = await loadConfig({ cwd });
+    if (!config.thresholds) {
+      const result2 = runCheck({
+        config,
+        // diff value is unused in the skip path; pass a stub.
+        diff: {
+          schemaVersion: 1,
+          base: "",
+          head: "",
+          patch: { executable: 0, covered: 0, pct: 0 },
+          project: { executable: 0, covered: 0, pct: 0, delta: null },
+          files: [],
+          ignored: []
+        },
+        json: opts.json
+      });
+      if (result2.stderr) process.stderr.write(result2.stderr);
+      if (result2.stdout) process.stdout.write(result2.stdout);
+      process.exitCode = result2.exitCode;
+      return;
+    }
+    const diff = await computeDiff({
+      cwd,
+      config,
+      ...opts.base !== void 0 ? { baseRef: opts.base } : {}
+    });
+    const result = runCheck({ config, diff, json: opts.json });
+    if (result.stderr) process.stderr.write(result.stderr);
+    if (result.stdout) process.stdout.write(result.stdout);
+    process.exitCode = result.exitCode;
+  });
+}
+
 // src/cli.ts
 function createProgram() {
-  const program2 = new Command6();
+  const program2 = new Command7();
   program2.name("tested").description("Coverage your agent can use.").version("0.0.1");
   registerInitCommand(program2);
   registerDiffCommand(program2);
+  registerCheckCommand(program2);
   registerRunCommand(program2);
   registerExplainCommand(program2);
   registerIgnoresCommand(program2);
@@ -722,4 +893,3 @@ function createProgram() {
 // bin/tested.ts
 var program = createProgram();
 await program.parseAsync(process.argv);
-//# sourceMappingURL=tested.js.map
