@@ -49,4 +49,4 @@ jobs:
       - name: gate — tested check
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: node vendor/tested.js check
+        run: node vendor/tested.js check --base "origin/$BASE_REF"
