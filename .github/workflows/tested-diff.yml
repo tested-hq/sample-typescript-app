@@ -45,3 +45,14 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: node vendor/tested.js diff --base "origin/$BASE_REF"
         continue-on-error: true
+
+      # The sample repo ships with intentional coverage gaps so visitors can
+      # see what the gate does on a real PR. We expect this step to exit
+      # non-zero — continue-on-error lets the workflow stay green so the
+      # demo PR doesn't show a red CI badge while still surfacing the gate
+      # output in the step log.
+      - name: gate — tested check
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: node vendor/tested.js check --base "origin/$BASE_REF"
+        continue-on-error: true
