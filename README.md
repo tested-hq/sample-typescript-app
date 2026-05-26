@@ -42,7 +42,7 @@ node vendor/tested.js diff --base origin/main --json
 3. Restart Claude Code so it picks up the new MCP server.
 4. Ask: _"Use the coverage tools to close the gap in `src/auth/tokens.ts`."_
 
-You'll see the agent call `coverage.get_uncovered_diff` over MCP, read the
+You'll see the agent call `get_uncovered_diff` over MCP, read the
 ranges, write a test, run it, and re-check.
 
 ## Why intentional gaps
