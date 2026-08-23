@@ -55,10 +55,9 @@ test, run it, and re-check.
 3. runs `pnpm test:coverage`
 4. runs [`tested-hq/cli/action@main`](https://github.com/tested-hq/cli/tree/main/action)
 
-The Action runs `tested check`. With `push: true` it also runs `tested push`
-when `secrets.TESTED_TOKEN` is set. Mint a token at
-[app.tested.dev](https://app.tested.dev) and store it as `TESTED_TOKEN`. The
-workflow is written that way even before the secret exists.
+The Action runs `tested check`, then `tested push`. Push needs
+`secrets.TESTED_TOKEN` (mint at [app.tested.dev](https://app.tested.dev)).
+The workflow is written that way even before the secret exists.
 
 ```yaml
 - uses: tested-hq/cli/action@main
