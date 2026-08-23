@@ -55,16 +55,21 @@ test, run it, and re-check.
 3. runs `pnpm test:coverage`
 4. runs [`tested-hq/cli/action@main`](https://github.com/tested-hq/cli/tree/main/action)
 
-The Action runs `tested check`, then `tested push`. Push needs
-`secrets.TESTED_TOKEN` (mint at [app.tested.dev](https://app.tested.dev)).
-The workflow is written that way even before the secret exists.
+The Action is the gate: it runs `tested check`. A copied workflow stays green
+without ingest.
+
+```yaml
+- uses: tested-hq/cli/action@main
+```
+
+To also post a share URL, add `TESTED_TOKEN` and turn push on:
 
 ```yaml
 - uses: tested-hq/cli/action@main
   with:
-    token: ${{ secrets.TESTED_TOKEN }}
     push: true
     pr-number: ${{ github.event.pull_request.number }}
+    token: ${{ secrets.TESTED_TOKEN }}
 ```
 
 ## Layout

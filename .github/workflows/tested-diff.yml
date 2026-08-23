@@ -34,7 +34,3 @@ jobs:
         run: pnpm test:coverage
 
       - uses: tested-hq/cli/action@main
-        with:
-          token: ${{ secrets.TESTED_TOKEN }}
-          push: true
-          pr-number: ${{ github.event.pull_request.number }}
