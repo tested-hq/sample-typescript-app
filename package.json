@@ -1,7 +1,7 @@
 {
   "name": "sample-typescript-app",
   "version": "0.1.0",
-  "description": "Reference sample repo for tested.dev — a realistic small TS app with intentional coverage gaps so `tested diff` has something to catch.",
+  "description": "Reference sample repo for tested.dev. A small TypeScript app wired to @tested/cli and the public GitHub Action.",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.3.0",
@@ -18,15 +18,10 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@tested/cli": "0.1.0",
     "@types/node": "25.9.1",
     "@vitest/coverage-v8": "4.1.7",
-    "commander": "14.0.3",
-    "minimatch": "10.2.5",
-    "picocolors": "1.1.1",
-    "simple-git": "3.36.0",
-    "tsx": "4.22.3",
     "typescript": "6.0.3",
-    "vitest": "4.1.7",
-    "yaml": "2.9.0"
+    "vitest": "4.1.7"
   }
 }

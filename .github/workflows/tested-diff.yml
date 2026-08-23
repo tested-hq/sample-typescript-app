@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   coverage-diff:
-    name: tested diff against base
+    name: tested check against base
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,15 +33,4 @@ jobs:
       - name: vitest with coverage
         run: pnpm test:coverage
 
-      - name: dogfood — tested diff
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          node vendor/tested.js diff --base "origin/$BASE_REF" --json \
-            | tee tested-output.json
-
-      - name: print human-readable summary
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: node vendor/tested.js diff --base "origin/$BASE_REF"
-        continue-on-error: true
+      - uses: tested-hq/cli/action@main

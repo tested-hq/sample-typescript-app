@@ -1,11 +1,8 @@
 {
   "mcpServers": {
     "tested": {
-      "command": "node",
-      "args": ["/absolute/path/to/tested-hq/mcp/dist/tested-mcp.js"],
-      "env": {
-        "TESTED_BIN": "/absolute/path/to/tested-hq/cli/dist/tested.js"
-      }
+      "command": "npx",
+      "args": ["-y", "@tested/mcp"]
     }
   }
 }
