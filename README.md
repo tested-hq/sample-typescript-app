@@ -11,11 +11,13 @@ TypeScript project. Clone it, install `@tested/cli`, run `tested diff`.
 
 ## Install
 
+Node 24+.
+
 ```bash
 pnpm add -D @tested/cli
 ```
 
-This repo already has that dep. After a clone:
+This repo already has `@tested/cli@0.1.5`. After a clone:
 
 ```bash
 pnpm install
@@ -54,12 +56,15 @@ test, run it, and re-check.
 2. typechecks
 3. runs `pnpm test:coverage`
 4. runs [`tested-hq/cli/action@main`](https://github.com/tested-hq/cli/tree/main/action)
+   with `version: 0.1.5`
 
 The Action is the gate: it runs `tested check`. A copied workflow stays green
 without ingest.
 
 ```yaml
 - uses: tested-hq/cli/action@main
+  with:
+    version: 0.1.5
 ```
 
 To also post a share URL, add `TESTED_TOKEN` and turn push on:
@@ -67,6 +72,7 @@ To also post a share URL, add `TESTED_TOKEN` and turn push on:
 ```yaml
 - uses: tested-hq/cli/action@main
   with:
+    version: 0.1.5
     push: true
     pr-number: ${{ github.event.pull_request.number }}
     token: ${{ secrets.TESTED_TOKEN }}
