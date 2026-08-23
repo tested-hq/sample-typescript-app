@@ -34,3 +34,5 @@ jobs:
         run: pnpm test:coverage
 
       - uses: tested-hq/cli/action@main
+        with:
+          version: 0.1.5

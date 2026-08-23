@@ -12,13 +12,13 @@
     "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "dependencies": {
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@tested/cli": "0.1.0",
+    "@tested/cli": "0.1.5",
     "@types/node": "25.9.1",
     "@vitest/coverage-v8": "4.1.7",
     "typescript": "6.0.3",
