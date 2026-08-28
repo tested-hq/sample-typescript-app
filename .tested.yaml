@@ -1,4 +1,6 @@
 # Config schema — see https://tested.dev/docs/config
+# testRunner is an enum only: vitest | jest | pytest.
+# A shell command (e.g. `pnpm test -- --coverage`) fails `tested check`.
 base: main
 testRunner: vitest
 thresholds:
