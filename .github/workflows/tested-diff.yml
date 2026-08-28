@@ -33,6 +33,13 @@ jobs:
       - name: vitest with coverage
         run: pnpm test:coverage
 
+      # Gate (tested check) then ingest. junit.xml is written by Vitest
+      # (reporters + outputFile in vitest.config.ts) so push includes
+      # flakes / suite time, not coverage-only.
       - uses: tested-hq/cli/action@main
         with:
-          version: 0.1.5
+          version: 0.1.7
+          push: true
+          pr-number: ${{ github.event.pull_request.number }}
+          token: ${{ secrets.TESTED_TOKEN }}
+          junit: junit.xml

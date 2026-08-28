@@ -13,8 +13,8 @@ importers:
         version: 4.4.3
     devDependencies:
       '@tested/cli':
-        specifier: 0.1.5
-        version: 0.1.5
+        specifier: 0.1.7
+        version: 0.1.7
       '@types/node':
         specifier: 25.9.1
         version: 25.9.1
@@ -178,8 +178,8 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@tested/cli@0.1.5':
-    resolution: {integrity: sha512-DibdlfObhxOPjGf2zNXG2CwQsuu0AWJEWesrjl1yjLcbfVxnhMqJBvs+EBTgwyfOJaq6J/ACEQ/L95KqN+TJrg==}
+  '@tested/cli@0.1.7':
+    resolution: {integrity: sha512-HRtLJ68YVY5+FjMYNftOYuF1phkG4v8UKkhydiqMtjP776ukep9arDBtHz69tCa8vojcgkAuaf5PysFXy+Pj9A==}
     engines: {node: '>=24'}
     hasBin: true
 
@@ -673,7 +673,7 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@tested/cli@0.1.5':
+  '@tested/cli@0.1.7':
     dependencies:
       commander: 14.0.3
       minimatch: 10.2.5
